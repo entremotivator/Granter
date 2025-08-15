@@ -248,30 +248,154 @@ def generate_sample_data():
 
 def main():
     # Header
-    st.markdown('<h1 class="main-header">💰 Grant Management Dashboard</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">💰 Comprehensive Grant Management Dashboard</h1>', unsafe_allow_html=True)
     
     # Load data
     with st.spinner("Loading grant data..."):
         df = load_google_sheets_data()
     
-    # Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox(
-        "Select Page",
-        ["Dashboard Overview", "Grant Types", "Client Management", "Analytics", "Reports"],
-        key="main_navigation"
-    )
+    # Dashboard Overview Section
+    show_dashboard_overview(df)
     
-    if page == "Dashboard Overview":
-        show_dashboard_overview(df)
-    elif page == "Grant Types":
-        show_grant_types(df)
-    elif page == "Client Management":
-        show_client_management(df)
-    elif page == "Analytics":
-        show_analytics(df)
-    elif page == "Reports":
-        show_reports(df)
+    st.markdown("---")
+    
+    # Grant Types Section  
+    show_grant_types(df)
+    
+    st.markdown("---")
+    
+    # Client Management Section
+    show_client_management(df)
+    
+    st.markdown("---")
+    
+    # Analytics Section
+    show_analytics(df)
+    
+    st.markdown("---")
+    
+    # Reports Section
+    show_reports(df)
+    
+    # Comprehensive Footer with Additional Information
+    st.markdown("---")
+    st.markdown("### 📋 Grant Application Tips & Resources")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **📝 Application Best Practices:**
+        - Start early and plan ahead
+        - Read guidelines carefully
+        - Provide clear, concise descriptions
+        - Include all required documentation
+        - Follow formatting requirements
+        - Proofread before submission
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🔍 Research Tips:**
+        - Identify funding priorities
+        - Match your project to funder goals
+        - Review successful applications
+        - Network with program officers
+        - Attend grant writing workshops
+        - Join professional associations
+        """)
+    
+    with col3:
+        st.markdown("""
+        **📊 Success Metrics:**
+        - Track application deadlines
+        - Monitor approval rates
+        - Analyze feedback patterns
+        - Build relationships with funders
+        - Maintain detailed records
+        - Plan for sustainability
+        """)
+    
+    # Detailed Grant Calendar and Upcoming Deadlines
+    st.markdown("---")
+    st.markdown("### 📅 Upcoming Grant Deadlines")
+    
+    # Create sample upcoming deadlines
+    upcoming_deadlines = pd.DataFrame({
+        'Grant Type': [
+            'NSF Research Grants', 'SBIR Phase I', 'Arts Council Grants',
+            'Environmental Education', 'Youth Development', 'Healthcare Innovation',
+            'Technology Transfer', 'Rural Development', 'Veterans Assistance'
+        ],
+        'Deadline': [
+            '2025-09-15', '2025-09-30', '2025-10-15',
+            '2025-10-31', '2025-11-15', '2025-11-30',
+            '2025-12-15', '2025-12-31', '2026-01-15'
+        ],
+        'Max Amount': [
+            '$2,000,000', '$1,750,000', '$100,000',
+            '$200,000', '$250,000', '$750,000',
+            '$1,500,000', '$500,000', '$300,000'
+        ],
+        'Days Until Deadline': [31, 46, 61, 77, 92, 107, 122, 138, 153]
+    })
+    
+    # Color code by urgency
+    def highlight_urgency(row):
+        if row['Days Until Deadline'] <= 30:
+            return ['background-color: #ffebee'] * len(row)
+        elif row['Days Until Deadline'] <= 60:
+            return ['background-color: #fff3e0'] * len(row)
+        else:
+            return ['background-color: #e8f5e8'] * len(row)
+    
+    styled_deadlines = upcoming_deadlines.style.apply(highlight_urgency, axis=1)
+    st.dataframe(styled_deadlines, use_container_width=True, key="upcoming_deadlines_table")
+    
+    # Comprehensive Resource Links and Contact Information
+    st.markdown("---")
+    st.markdown("### 🔗 Additional Resources & Contacts")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **🌐 Useful Websites:**
+        - [Grants.gov](https://grants.gov) - Federal grant opportunities
+        - [Foundation Directory](https://fconline.foundationcenter.org) - Private foundation grants
+        - [SBIR.gov](https://sbir.gov) - Small business innovation research
+        - [NSF.gov](https://nsf.gov) - National Science Foundation
+        - [NIH.gov](https://nih.gov) - National Institutes of Health
+        - [Arts.gov](https://arts.gov) - National Endowment for the Arts
+        """)
+        
+        st.markdown("""
+        **📚 Grant Writing Resources:**
+        - Grant writing workshops and webinars
+        - Professional grant writing associations
+        - University research offices
+        - Consultant directories
+        - Template libraries
+        - Peer review networks
+        """)
+    
+    with col2:
+        st.markdown("""
+        **📞 Support Contacts:**
+        - **Technical Support:** support@grantdashboard.com
+        - **Grant Consultation:** consulting@grantdashboard.com  
+        - **Training & Workshops:** training@grantdashboard.com
+        - **Partnership Inquiries:** partnerships@grantdashboard.com
+        - **Emergency Support:** 1-800-GRANTS-1
+        """)
+        
+        st.markdown("""
+        **🕒 Office Hours:**
+        - Monday - Friday: 8:00 AM - 6:00 PM EST
+        - Saturday: 10:00 AM - 2:00 PM EST
+        - Sunday: Closed
+        - Emergency support available 24/7
+        """)
 
 def show_dashboard_overview(df):
     """Display main dashboard overview"""
