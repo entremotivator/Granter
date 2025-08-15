@@ -870,9 +870,8 @@ def main():
     with col3:
         if st.button("🔄 Refresh All Data"):
             st.cache_data.clear()
-            st.experimental_rerun()
+            st.rerun()
 
 if __name__ == "__main__":
     main()
 
-</merged_code>
