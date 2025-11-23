@@ -637,20 +637,38 @@ def main():
             df = load_google_sheets_data(sheet_url)
         else:
             df = create_sample_data()
+            
+        # Check if data loading failed and return an empty DataFrame if so
+        if df is None or df.empty:
+            df = pd.DataFrame(columns=['Status', 'Grant Type', 'Funding', 'Eligibility', 'Response Date', 'Agency', 'State']) # Ensure minimum columns exist for later checks
         
-        # Get unique values for filters
-        all_statuses = df['Status'].unique().tolist()
-        all_grant_types = df['Grant Type'].unique().tolist()
-        
-        status_filter = st.multiselect("Status", all_statuses, default=all_statuses)
-        grant_type_filter = st.selectbox("Grant Type", ["All"] + all_grant_types)
-    
+        # Initialize filter variables
+        all_statuses = []
+        all_grant_types = []
+        status_filter = []
+        grant_type_filter = "All"
+
+        # Check if DataFrame is valid before accessing columns
+        if not df.empty and 'Status' in df.columns and 'Grant Type' in df.columns:
+            # Get unique values for filters
+            all_statuses = df['Status'].unique().tolist()
+            all_grant_types = df['Grant Type'].unique().tolist()
+            
+            status_filter = st.multiselect("Status", all_statuses, default=all_statuses)
+            grant_type_filter = st.selectbox("Grant Type", ["All"] + all_grant_types)
+        else:
+            st.warning("Data could not be loaded or is empty. Using default filters.")
+            status_filter = st.multiselect("Status", STATUSES, default=STATUSES)
+            grant_type_filter = st.selectbox("Grant Type", ["All"] + GRANT_TYPES)
+            
     # Apply filters
     filtered_df = df.copy()
-    if status_filter:
-        filtered_df = filtered_df[filtered_df['Status'].isin(status_filter)]
-    if grant_type_filter != "All":
-        filtered_df = filtered_df[filtered_df['Grant Type'] == grant_type_filter]
+    
+    if not filtered_df.empty:
+        if status_filter and 'Status' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Status'].isin(status_filter)]
+        if grant_type_filter != "All" and 'Grant Type' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Grant Type'] == grant_type_filter]
     
     # --- Executive Summary ---
     st.header("📈 Executive Summary")
@@ -665,7 +683,7 @@ def main():
         """.format(len(filtered_df)), unsafe_allow_html=True)
     
     with col2:
-        total_funding = filtered_df['Funding'].sum()
+        total_funding = filtered_df['Funding'].sum() if 'Funding' in filtered_df.columns else 0
         st.markdown("""
         <div class="metric-card">
             <h3>Total Funding</h3>
@@ -674,7 +692,7 @@ def main():
         """.format(total_funding), unsafe_allow_html=True)
     
     with col3:
-        avg_funding = filtered_df['Funding'].mean()
+        avg_funding = filtered_df['Funding'].mean() if 'Funding' in filtered_df.columns else 0
         st.markdown("""
         <div class="metric-card">
             <h3>Avg Funding</h3>
@@ -683,7 +701,7 @@ def main():
         """.format(int(avg_funding) if not pd.isna(avg_funding) else 0), unsafe_allow_html=True)
     
     with col4:
-        eligible_grants = len(filtered_df[filtered_df['Eligibility'] == 'Yes'])
+        eligible_grants = len(filtered_df[filtered_df['Eligibility'] == 'Yes']) if 'Eligibility' in filtered_df.columns else 0
         st.markdown("""
         <div class="metric-card">
             <h3>Eligible Grants</h3>
@@ -699,46 +717,57 @@ def main():
     if not filtered_df.empty:
         with col1:
             # Status distribution
-            status_counts = filtered_df['Status'].value_counts()
-            status_df = pd.DataFrame({'Status': status_counts.index, 'Count': status_counts.values})
-            fig = px.pie(status_df, values='Count', names='Status', title="Grant Status Distribution")
-            st.plotly_chart(fig, use_container_width=True)
+            if 'Status' in filtered_df.columns:
+                status_counts = filtered_df['Status'].value_counts()
+                status_df = pd.DataFrame({'Status': status_counts.index, 'Count': status_counts.values})
+                fig = px.pie(status_df, values='Count', names='Status', title="Grant Status Distribution")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Status distribution not available.")
         
         with col2:
             # Funding by grant type
-            funding_by_type = filtered_df.groupby('Grant Type')['Funding'].sum().sort_values(ascending=False).head(10)
-            funding_df = pd.DataFrame({'Grant Type': funding_by_type.index, 'Total Funding': funding_by_type.values})
-            fig = px.bar(funding_df, x='Total Funding', y='Grant Type', orientation='h', title="Top 10 Grant Types by Funding")
-            st.plotly_chart(fig, use_container_width=True)
+            if 'Grant Type' in filtered_df.columns and 'Funding' in filtered_df.columns:
+                funding_by_type = filtered_df.groupby('Grant Type')['Funding'].sum().sort_values(ascending=False).head(10)
+                funding_df = pd.DataFrame({'Grant Type': funding_by_type.index, 'Total Funding': funding_by_type.values})
+                fig = px.bar(funding_df, x='Total Funding', y='Grant Type', orientation='h', title="Top 10 Grant Types by Funding")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Funding by grant type not available.")
         
         # Timeline analysis
         st.subheader("📅 Timeline Analysis")
-        filtered_df['Response Date'] = pd.to_datetime(filtered_df['Response Date'], errors='coerce')
-        filtered_df['Days Until Response'] = (filtered_df['Response Date'] - datetime.now()).dt.days
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Upcoming deadlines
-            upcoming = filtered_df[filtered_df['Days Until Response'] > 0].sort_values('Days Until Response').head(10)
-            fig = px.bar(upcoming, x='Days Until Response', y='Title', orientation='h', 
-                         title="Upcoming Response Deadlines", color='Days Until Response',
-                         color_continuous_scale='RdYlGn_r')
+        # Safely perform date and analysis operations
+        if 'Response Date' in filtered_df.columns and 'Agency' in filtered_df.columns and 'State' in filtered_df.columns:
+            filtered_df['Response Date'] = pd.to_datetime(filtered_df['Response Date'], errors='coerce')
+            filtered_df['Days Until Response'] = (filtered_df['Response Date'] - datetime.now()).dt.days
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Upcoming deadlines
+                upcoming = filtered_df[filtered_df['Days Until Response'] > 0].sort_values('Days Until Response').head(10)
+                fig = px.bar(upcoming, x='Days Until Response', y='Title', orientation='h', 
+                             title="Upcoming Response Deadlines", color='Days Until Response',
+                             color_continuous_scale='RdYlGn_r')
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Agency distribution
+                agency_counts = filtered_df['Agency'].value_counts()
+                agency_df = pd.DataFrame({'Agency': agency_counts.index, 'Count': agency_counts.values})
+                fig = px.bar(agency_df, x='Agency', y='Count', title="Grants by Agency")
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Geographic distribution
+            st.subheader("🗺️ Geographic Distribution")
+            state_counts = filtered_df['State'].value_counts()
+            state_df = pd.DataFrame({'State': state_counts.index, 'Count': state_counts.values})
+            fig = px.bar(state_df, x='State', y='Count', title="Grants by State")
             st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Agency distribution
-            agency_counts = filtered_df['Agency'].value_counts()
-            agency_df = pd.DataFrame({'Agency': agency_counts.index, 'Count': agency_counts.values})
-            fig = px.bar(agency_df, x='Agency', y='Count', title="Grants by Agency")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Geographic distribution
-        st.subheader("🗺️ Geographic Distribution")
-        state_counts = filtered_df['State'].value_counts()
-        state_df = pd.DataFrame({'State': state_counts.index, 'Count': state_counts.values})
-        fig = px.bar(state_df, x='State', y='Count', title="Grants by State")
-        st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Cannot display detailed analytics due to missing data columns.")
     else:
         st.warning("No grants match the current filters.")
     
@@ -747,7 +776,7 @@ def main():
     st.write(f"Displaying {len(filtered_df)} grants with comprehensive details")
     
     # Group by grant type for better organization
-    if not filtered_df.empty:
+    if not filtered_df.empty and 'Grant Type' in filtered_df.columns:
         for grant_type in filtered_df['Grant Type'].unique():
             st.subheader(f"🎯 {grant_type}")
             grant_type_data = filtered_df[filtered_df['Grant Type'] == grant_type]
@@ -772,20 +801,28 @@ def main():
             )
         
         with col2:
+            # Safely generate summary data
+            total_grants = len(filtered_df)
+            total_funding = filtered_df['Funding'].sum() if 'Funding' in filtered_df.columns else 0
+            avg_funding = filtered_df['Funding'].mean() if 'Funding' in filtered_df.columns else 0
+            eligible_grants = len(filtered_df[filtered_df['Eligibility'] == 'Yes']) if 'Eligibility' in filtered_df.columns else 0
+            status_breakdown = filtered_df['Status'].value_counts().to_string() if 'Status' in filtered_df.columns else "N/A"
+            top_funding = filtered_df.groupby('Grant Type')['Funding'].sum().sort_values(ascending=False).head(5).to_string() if 'Grant Type' in filtered_df.columns and 'Funding' in filtered_df.columns else "N/A"
+            
             summary = f"""
             Grants Summary Report
             Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             
-            Total Grants: {len(filtered_df)}
-            Total Funding: ${filtered_df['Funding'].sum():,}
-            Average Funding: ${filtered_df['Funding'].mean():,.0f}
-            Eligible Grants: {len(filtered_df[filtered_df['Eligibility'] == 'Yes'])}
+            Total Grants: {total_grants}
+            Total Funding: ${total_funding:,}
+            Average Funding: ${avg_funding:,.0f}
+            Eligible Grants: {eligible_grants}
             
             Status Breakdown:
-            {filtered_df['Status'].value_counts().to_string()}
+            {status_breakdown}
             
             Top Grant Types by Funding:
-            {filtered_df.groupby('Grant Type')['Funding'].sum().sort_values(ascending=False).head(5).to_string()}
+            {top_funding}
             """
             st.download_button(
                 label="📈 Export Summary Report",
