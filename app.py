@@ -1055,7 +1055,7 @@ def main():
         # Google Sheets URL input
         sheet_url = st.text_input(
             "Google Sheets URL",
-            placeholder="https://docs.google.com/spreadsheets/d/...",
+            value="https://docs.google.com/spreadsheets/d/1xok6PwIk5Kyj78KhBFkjJYGNSdkosxeXliTy0Alt3bc/edit?usp=sharing",
             help="Paste your Google Sheets URL here. Make sure the sheet is shared publicly or with link access."
         )
         
